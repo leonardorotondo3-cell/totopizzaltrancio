@@ -432,6 +432,18 @@ body.hero-in-vista .barra{display:none}
 @keyframes pulsaBarra{0%,100%{background:var(--rosso)}50%{background:#E4183A}}
 .barra .ordine-mob.pulsa{animation:pulsaBarra 1.9s ease-in-out infinite}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---- ordine online: minimo e conferma ---- */
+.avviso-min{margin:.6rem 0 0;padding:.55rem .7rem;border-radius:.5rem;
+  background:#fff4e5;color:#7a4b00;font-size:.86rem;line-height:1.35}
+.esito{margin:.5rem 0 0;font-size:.86rem;line-height:1.35;text-align:center}
+.esito.ko{color:#a11}
+.fatto{text-align:center;padding:1.4rem .6rem}
+.fatto-tit{font-size:1.35rem;font-weight:700;margin:0 0 .2rem}
+.fatto-cod{font-size:1.05rem;margin:0 0 .8rem}
+.fatto-cod b{font-size:1.5rem;letter-spacing:.02em}
+.fatto .btn{display:inline-block;margin-top:.9rem}
+.btn[disabled]{opacity:.5;pointer-events:none}
 </style>
 </head>
 <body>
@@ -837,7 +849,19 @@ body.hero-in-vista .barra{display:none}
           <div class="tot"><span>Totale</span><span class="eur" id="ck-tot">0,00 €</span></div>
         </div>
         <p class="mini" id="ck-piede"></p>
+        <p class="avviso-min" id="ck-minimo" hidden></p>
         <p class="mini">Prezzi da listino delivery: il totale è indicativo, te lo confermiamo noi.</p>
+      </section>
+
+      <!-- Non è un passo della procedura: si mostra da sé quando l'ordine
+           è stato registrato, e toglie di mezzo tutto il resto. -->
+      <section class="passo" id="p-fatto" hidden>
+        <div class="fatto">
+          <p class="fatto-tit">Ordine ricevuto</p>
+          <p class="fatto-cod">Numero <b id="fatto-codice">—</b></p>
+          <p class="mini" id="fatto-testo"></p>
+          <a class="btn btn-rosso" id="fatto-stato" target="_blank" rel="noopener" hidden>Segui il tuo ordine</a>
+        </div>
       </section>
 
     </div>
@@ -846,6 +870,8 @@ body.hero-in-vista .barra{display:none}
       <div class="piede-tot"><span id="piede-etichetta">Totale</span><b id="piede-eur">0,00 €</b></div>
       <button class="btn btn-rosso" id="avanti">Continua</button>
       <div class="azioni" id="azioni-finali" hidden>
+        <button class="btn btn-rosso" id="invia" hidden>Invia l'ordine</button>
+        <p class="esito" id="invio-esito" hidden></p>
         <a class="btn btn-verde" id="wapp" target="_blank" rel="noopener" hidden>Invia ordine su WhatsApp</a>
         <a class="btn btn-rosso" id="chiama" href="tel:0399140164">Chiama e detta l'ordine</a>
         <button class="btn btn-vuoto" id="copia" style="color:var(--inch)">Copia l'ordine</button>
@@ -875,6 +901,16 @@ const DATI = {
   glovo:      '',                    /* BOZZA: URL mancante */
   justeat:    '',                    /* BOZZA: URL mancante */
   consegna:   2.50,                  /* BOZZA: confermare costo e zona */
+  minOrdine:  15,                    /* minimo solo a domicilio; il ritiro resta libero */
+
+  /* ---- servizio ordini (site-factory) ----------------------------------
+     Con `api` compilato l'ordine va nel database della pizzeria e compare
+     sul pannello comande. Se il servizio non risponde, o se in negozio
+     nessuno sta guardando il pannello, il sito torna da solo a WhatsApp:
+     un ordine non deve mai finire in un posto che nessuno guarda.
+     Per spegnere tutto e tornare al vecchio giro: api: ''.            */
+  api:        'https://ordini-api-m5l0.onrender.com',
+  negozio:    'toto-trancio',
   STAMPA:     true,                  /* true = messaggio pronto per la stampante termica
                                         false = versione con emoji e grassetto */
   sogliaTranci: 4,                   /* da qui in su il bottone ordine pulsa */
@@ -917,6 +953,16 @@ const TAGLIE = {
 let lista = [];
 let modo = 'ritiro';
 let nota = '';
+
+/* Riferimento dell'ordine: due tocchi sul pulsante, o un invio ripetuto
+   perché la rete è andata e tornata, non devono diventare due ordini.
+   Cambia solo quando un ordine è stato registrato davvero. */
+function nuovoRiferimento(){
+  return 'toto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+let riferimento = nuovoRiferimento();
+let ordiniOnline = false;   /* acceso solo se il servizio risponde e in negozio guardano */
+let invioInCorso = false;
 
 /* ---------- utilità ---------- */
 const eur = n => n.toFixed(2).replace('.',',') + ' €';
@@ -1138,6 +1184,11 @@ function cambia(k, d){
 }
 function subtotale(){ return lista.reduce((t, r) => t + r.prezzo * r.q, 0); }
 function totale(){ return modo === 'consegna' ? subtotale() + DATI.consegna : subtotale(); }
+/* Il minimo vale sul subtotale, non sul totale: sarebbe strano che a
+   raggiungerlo contribuisse il costo del trasporto. Solo a domicilio. */
+function mancaAlMinimo(){
+  return modo === 'consegna' ? Math.max(0, DATI.minOrdine - subtotale()) : 0;
+}
 function pezzi(){ return lista.reduce((t, r) => t + r.q, 0); }
 function tranci(){ return lista.reduce((t, r) => t + (r.c === 'classiche' || r.c === 'speciali' ? r.q : 0), 0); }
 function sogliaRaggiunta(){ return tranci() >= DATI.sogliaTranci || totale() >= DATI.sogliaEuro; }
@@ -1479,6 +1530,15 @@ function sincTotali(){
   $('cs-consegna').textContent = eur(DATI.consegna);
   $('ck-tot').textContent = eur(totale());
   $('piede-eur').textContent = eur(totale());
+
+  const manca = mancaAlMinimo();
+  const av = $('ck-minimo');
+  if(av){
+    av.hidden = manca <= 0;
+    if(manca > 0) av.innerHTML = 'Per la consegna a casa il minimo è <b>' + eur(DATI.minOrdine) +
+      '</b>: mancano <b>' + eur(manca) + '</b>. Aggiungi qualcosa, oppure passa al ritiro in pizzeria.';
+  }
+
   bottoniOrdine();
   sincInvio();
 }
@@ -1503,6 +1563,7 @@ function valido(mostra, ambito){
     ok = false;
     if(mostra) $('g-pagamento').style.display = 'block';
   }
+  if(ambito === 'tutto' && mancaAlMinimo() > 0) ok = false;
   return ok;
 }
 ['ck-nome','ck-tel','ck-via','ck-citofono'].forEach(id => $(id).addEventListener('input', () => {
@@ -1660,17 +1721,190 @@ function testoOrdine(perWhatsApp){
   return t;
 }
 
+/* ============================================================
+   L'INVIO DELL'ORDINE
+
+   Due strade, in quest'ordine:
+
+     1. il servizio ordini — l'ordine finisce nel database della
+        pizzeria e compare sul pannello comande, che lo stampa;
+     2. WhatsApp — come si è sempre fatto.
+
+   La seconda esiste perché la prima può mancare: servizio giù, rete del
+   cliente ballerina, o semplicemente nessuno che sta guardando il
+   pannello in negozio. In tutti quei casi il sito lo dice e passa a
+   WhatsApp, senza far sparire l'ordine di nessuno.
+   ============================================================ */
+
+const linkWhatsApp = () => 'https://wa.me/' + DATI.wa + '?text=' + encodeURIComponent(testoOrdine(true));
+
 function sincInvio(){
-  const w = $('wapp');
+  const w = $('wapp'), b = $('invia');
   if(w){
-    w.hidden = !DATI.wa;
-    if(DATI.wa) w.href = 'https://wa.me/' + DATI.wa + '?text=' + encodeURIComponent(testoOrdine(true));
+    /* quando il servizio ordini funziona, WhatsApp resta di scorta e
+       non si mostra: due pulsanti «manda» chiedono una scelta che il
+       cliente non ha modo di fare */
+    w.hidden = !DATI.wa || ordiniOnline;
+    if(DATI.wa) w.href = linkWhatsApp();
+  }
+  if(b){
+    b.hidden = !ordiniOnline;
+    b.disabled = invioInCorso || mancaAlMinimo() > 0;
+    b.textContent = invioInCorso ? 'Invio…' : "Invia l'ordine";
   }
 }
+
 $('wapp').addEventListener('click', e => {
   if(!valido(true)){ e.preventDefault(); vaiAlProblema(); return; }
-  $('wapp').href = 'https://wa.me/' + DATI.wa + '?text=' + encodeURIComponent(testoOrdine(true));
+  $('wapp').href = linkWhatsApp();
 });
+
+/* Il negozio accetta ordini adesso? Se il servizio non risponde entro
+   pochi secondi si resta su WhatsApp: meglio la strada vecchia che una
+   pagina che aspetta. */
+async function chiediSeAperto(){
+  if(!DATI.api || !DATI.negozio) return;
+  try{
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 6000);
+    const r = await fetch(DATI.api + '/api/shop?shop=' + encodeURIComponent(DATI.negozio),
+                          {signal: c.signal});
+    clearTimeout(t);
+    if(!r.ok) return;
+    const d = await r.json();
+    ordiniOnline = d.open === true;
+  }catch(err){ ordiniOnline = false; }
+  sincInvio();
+}
+chiediSeAperto();
+/* si ricontrolla quando si apre il riepilogo: fra l'arrivo sul sito e
+   l'invio possono passare dieci minuti, e in mezzo il negozio chiude */
+setInterval(chiediSeAperto, 120000);
+
+function esito(testo, brutto){
+  const e = $('invio-esito');
+  e.hidden = !testo;
+  e.textContent = testo || '';
+  e.classList.toggle('ko', !!brutto);
+}
+
+function ripiegaSuWhatsApp(motivo){
+  ordiniOnline = false;
+  sincInvio();
+  esito(motivo + ' Mandalo su WhatsApp qui sotto: lo riceviamo lo stesso.', true);
+}
+
+function datiOrdine(){
+  const pag = document.querySelector('input[name=pagamento]:checked');
+  const pranzo = $('ck-pranzo').value, cena = $('ck-cena').value;
+  const scelto = pranzo || cena;
+  const m = scelto ? scelto.match(/^(?:(.+?)\s)?(\d{2}:\d{2})$/) : null;
+  const cons = modo === 'consegna';
+  return {
+    shop: DATI.negozio,
+    clientRef: riferimento,
+    mode: cons ? 'domicilio' : 'asporto',
+    payment: pag ? pag.value : null,
+    service: pranzo ? 'pranzo' : (cena ? 'cena' : null),
+    slot:    m ? m[2] : null,
+    slotDay: m ? (m[1] || 'oggi') : null,
+    customer: {
+      name:    $('ck-nome').value.trim(),
+      phone:   $('ck-tel').value.trim(),
+      address: cons ? $('ck-via').value.trim() : '',
+      bell:    cons ? $('ck-citofono').value.trim() : '',
+      note:    $('ck-note').value.trim()
+    },
+    /* le righe: al servizio servono le scelte, non i prezzi — quelli li
+       rifà lui dal listino, ed è giusto così */
+    items: lista.map(r => ({
+      itemId:  r.i + '-' + r.t,
+      qty:     r.q,
+      removed: r.tolti,
+      added:   r.aggiunti.map(a => a.n),
+      cook:    r.cottura,
+      note:    r.nota
+    })),
+    quoted: { subtotal: subtotale(), deliveryFee: cons ? DATI.consegna : 0, total: totale() }
+  };
+}
+
+function ordineFatto(d){
+  riferimento = nuovoRiferimento();          /* il prossimo ordine è un altro ordine */
+  $('fatto-codice').textContent = d.code || '—';
+  const quando = orarioScelto();
+  $('fatto-testo').textContent =
+    (modo === 'consegna' ? 'Lo prepariamo e te lo portiamo' : 'Lo prepariamo per il ritiro') +
+    (quando ? ' ' + quando + '.' : ' il prima possibile.') +
+    ' Se serve ti chiamiamo al ' + $('ck-tel').value.trim() + '.';
+  const link = $('fatto-stato');
+  if(d.statusUrl){ link.href = d.statusUrl; link.hidden = false; }
+  else link.hidden = true;
+
+  PASSI.forEach(x => { $(x.id).hidden = true; });
+  $('p-fatto').hidden = false;
+  $('passo-tit').textContent = 'Ordine ricevuto';
+  $('passo-conta').textContent = 'Numero ' + (d.code || '');
+  $('avanzamento-barra').style.width = '100%';
+  $('indietro').hidden = true;
+  $('avanti').hidden = true;
+  $('azioni-finali').hidden = true;
+  document.querySelector('.piede-tot').hidden = true;
+  $('passi').scrollTop = 0;
+  $('passo-tit').focus();
+}
+
+async function provaInvio(attesa){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), attesa);
+  try{
+    const r = await fetch(DATI.api + '/api/orders', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(datiOrdine()),
+      signal: c.signal
+    });
+    return { status: r.status, d: await r.json().catch(() => ({})) };
+  }finally{ clearTimeout(t); }
+}
+
+async function inviaOrdine(){
+  if(invioInCorso) return;                 /* due tocchi non sono due ordini */
+  if(!valido(true)){ vaiAlProblema(); return; }
+
+  invioInCorso = true; sincInvio(); esito('');
+  try{
+    let r = null;
+    /* Un secondo colpo prima di arrendersi, con lo stesso clientRef.
+       Serve al caso peggiore: la richiesta è arrivata, l'ordine è stato
+       creato, e a perdersi è stata la risposta. Senza ritentativo il
+       cliente manderebbe lo stesso ordine anche su WhatsApp, e in
+       pizzeria ne uscirebbero due. Col riferimento uguale il servizio
+       restituisce quello di prima invece di crearne un altro. */
+    for(let giro = 0; giro < 2; giro++){
+      try{ r = await provaInvio(giro ? 20000 : 12000); }
+      catch(err){ r = null; }
+      if(r && r.status < 500) break;
+      if(giro === 0) await new Promise(s => setTimeout(s, 1200));
+    }
+
+    if(!r){ ripiegaSuWhatsApp('Non riusciamo a raggiungere la pizzeria.'); return; }
+    if(r.status === 201 || (r.status === 200 && r.d.code)){ ordineFatto(r.d); return; }
+
+    /* 4xx: è un problema dell'ordine, non della rete. Lo si dice e basta:
+       ripiegare su WhatsApp qui vorrebbe dire mandare in pizzeria un
+       ordine che il servizio ha appena rifiutato. */
+    if(r.status >= 400 && r.status < 500 && r.status !== 429){
+      esito(r.d.message || 'Controlla i dati e riprova.', true);
+      if(/minimo/i.test(r.d.message || '')) vaiA('p-ordine');
+      return;
+    }
+    ripiegaSuWhatsApp('La pizzeria non risponde in questo momento.');
+  }finally{
+    invioInCorso = false; sincInvio();
+  }
+}
+$('invia').addEventListener('click', inviaOrdine);
 $('chiama').addEventListener('click', () => {
   if(navigator.clipboard) navigator.clipboard.writeText(testoOrdine(false)).catch(() => {});
 });
@@ -1685,6 +1919,7 @@ function primoErrore(){
   if(g){ const c = g.querySelector('.campo'); if(c){ c.focus(); c.scrollIntoView({block:'center'}); } }
 }
 function vaiAlProblema(){
+  if(mancaAlMinimo() > 0){ vaiA('p-ordine'); return; }
   if(document.querySelector('#p-dati .campo-g.ko')){ vaiA('p-dati'); primoErrore(); }
   else vaiA('p-pagamento');
 }
@@ -1719,6 +1954,7 @@ function disegnaPasso(){
   const {attivi, i} = posizione();
   const p = attivi[i];
 
+  $('p-fatto').hidden = true;          /* si torna alla procedura normale */
   PASSI.forEach(x => { $(x.id).hidden = x.id !== p.id; });
   $('passo-tit').textContent = p.tit;
   $('passo-conta').textContent = 'Passo ' + (i + 1) + ' di ' + attivi.length;
