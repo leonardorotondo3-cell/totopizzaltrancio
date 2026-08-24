@@ -471,6 +471,25 @@ body.hero-in-vista .barra{display:none}
 .fatto-cod{font-size:1.05rem;margin:0 0 .8rem}
 .fatto-cod b{font-size:1.5rem;letter-spacing:.02em}
 .fatto .btn{display:inline-block;margin-top:.9rem}
+
+/* ---- stato dell'ordine, dentro l'app ---- */
+.st-code{font-size:2rem;font-weight:700;letter-spacing:.02em;margin:0}
+.st-eta{font-size:1.25rem;font-weight:700;color:var(--rosso);margin:.5rem 0 .1rem}
+.st-lead{color:var(--grigio);margin:0;font-size:.86rem;line-height:1.5}
+ol.st-fasi{list-style:none;margin:1.4rem 0 .9rem;padding:0 0 0 1.4rem;border-left:2px solid var(--carta-2)}
+ol.st-fasi li{position:relative;padding:.62rem 0;color:var(--grigio);font-size:.92rem}
+ol.st-fasi li::before{content:'';position:absolute;left:-1.75rem;top:.95rem;width:11px;height:11px;
+  border-radius:50%;background:var(--carta);border:2px solid var(--carta-2)}
+ol.st-fasi li.fatta{color:var(--inch)}
+ol.st-fasi li.fatta::before{background:var(--verde);border-color:var(--verde)}
+ol.st-fasi li.ora{color:var(--inch);font-weight:700}
+ol.st-fasi li.ora::before{background:var(--rosso);border-color:var(--rosso);
+  box-shadow:0 0 0 4px rgba(200,16,46,.2)}
+.st-riga{display:flex;justify-content:space-between;padding:.3rem 0;font-size:.9rem;color:var(--inch)}
+.st-riga.tot{font-weight:700;font-size:1.05rem;border-top:1px solid var(--carta-2);
+  margin-top:.5rem;padding-top:.6rem}
+.st-ref{border-color:var(--carta-2);color:var(--inch);width:100%;justify-content:center;margin-top:1.1rem}
+.st-ref:hover{border-color:var(--rosso);color:var(--rosso);background:none}
 .btn[disabled]{opacity:.5;pointer-events:none}
 </style>
 </head>
@@ -709,6 +728,19 @@ body.hero-in-vista .barra{display:none}
      Apple non dà nessuna API per installare: su iOS l'unica strada è il
      menu Condividi. Meglio spiegarla in tre righe che far finta di
      avere un pulsante che non esiste. -->
+<!-- Lo stato dell'ordine si legge qui dentro: la pagina vera sta su un
+     altro dominio, e da un'app installata aprirla vuol dire uscirne. -->
+<div class="modale" id="m-stato" hidden role="dialog" aria-modal="true" aria-labelledby="stato-tit">
+  <div class="modale-fondo" data-chiudi-stato></div>
+  <div class="modale-box">
+    <div class="modale-testa">
+      <h2 id="stato-tit">Il tuo ordine</h2>
+      <button class="chiudi" data-chiudi-stato aria-label="Chiudi">&times;</button>
+    </div>
+    <div id="stato-corpo"></div>
+  </div>
+</div>
+
 <div class="modale" id="m-app" hidden role="dialog" aria-modal="true" aria-labelledby="app-tit">
   <div class="modale-fondo" data-chiudi-app></div>
   <div class="modale-box">
@@ -909,12 +941,16 @@ body.hero-in-vista .barra{display:none}
           <p class="fatto-tit">Ordine ricevuto</p>
           <p class="fatto-cod">Numero <b id="fatto-codice">—</b></p>
           <p class="mini" id="fatto-testo"></p>
-          <a class="btn btn-rosso" id="fatto-stato" target="_blank" rel="noopener" hidden>Segui il tuo ordine</a>
+          <!-- L'app sta prima del link di tracciamento perché è la cosa
+               che cambia il prossimo ordine; il link resta comunque su
+               WhatsApp. Il tasto sparisce del tutto se l'app c'è già. -->
           <p class="mini" style="margin-top:1.2rem">La prossima volta più in fretta:</p>
-          <button class="btn btn-vuoto btn-app" data-installa hidden style="margin:0 auto">
+          <button class="btn btn-vuoto btn-app" data-installa hidden style="margin:0 auto 1.4rem">
             <img class="ico" src="/icon-192.png" alt="" width="26" height="26">
             Installa l'app
           </button>
+          <button class="btn btn-rosso" id="fatto-stato" type="button" data-stato hidden>Segui il tuo ordine</button>
+          <p class="mini">Si apre qui dentro: dall'app non si esce.</p>
         </div>
       </section>
 
@@ -1050,6 +1086,146 @@ document.addEventListener('click', e => {
 document.addEventListener('installabile', sincInstalla);
 addEventListener('appinstalled', () => { window.__installa = null; sincInstalla(); });
 sincInstalla();
+
+/* ============================================================
+   LO STATO DELL'ORDINE, DENTRO L'APP
+
+   La pagina di stato vive sul servizio ordini, che e' un altro
+   dominio. Da un'app installata aprirla significa uscirne: Android
+   apre una finestra del browser e per tornare indietro bisogna
+   ritrovare l'app fra le schede. Un cliente che voleva solo sapere a
+   che punto e' il trancio si ritrova fuori casa.
+
+   Qui gli stessi dati si chiedono all'API e si disegnano in una
+   modale del sito. Il link alla pagina esterna resta, piccolo, in
+   fondo: serve a chi vuole salvarlo o mandarlo a qualcuno.
+   ============================================================ */
+
+const FASI_STATO = [
+  ['ACCETTATO',       'Confermato'],
+  ['IN_PREPARAZIONE', 'In forno'],
+  ['IN_CONSEGNA',     'In consegna'],
+  ['CONSEGNATO',      'Consegnato']
+];
+/* PRONTO non e' piu' una fase mostrata: gli ordini che ce l'hanno
+   addosso da prima del cambio si leggono come "in forno". */
+const POS_STATO = { ACCETTATO:0, IN_PREPARAZIONE:1, PRONTO:1, IN_CONSEGNA:2, CONSEGNATO:3 };
+
+const escSt = s => String(s).replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+
+let tokenOrdine = null, urlStato = '';
+try{ tokenOrdine = localStorage.getItem('sf.ordine') || null; }catch(e){}
+
+/* Il token resta scritto: l'app chiusa e riaperta puo' ritrovare
+   l'ordine senza che il cliente si sia salvato niente. */
+function ricordaOrdine(token, url){
+  tokenOrdine = token || null;
+  urlStato = url || '';
+  try{
+    if(token) localStorage.setItem('sf.ordine', token);
+    else localStorage.removeItem('sf.ordine');
+  }catch(e){}
+}
+
+function apriStato(){
+  if(!tokenOrdine) return;
+  $('m-stato').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('stato-corpo').innerHTML = '<p class="mini">Un attimo…</p>';
+  caricaStato();
+}
+
+function chiudiStato(){
+  $('m-stato').hidden = true;
+  if($('drawer').hidden) document.body.style.overflow = '';
+}
+
+async function caricaStato(){
+  const box = $('stato-corpo');
+  if(!tokenOrdine || !DATI.api){ box.innerHTML = ''; return; }
+  try{
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 8000);
+    const r = await fetch(DATI.api + '/api/order-status?t=' + encodeURIComponent(tokenOrdine),
+                          { signal: c.signal });
+    clearTimeout(t);
+    if(!r.ok) throw new Error();
+    disegnaStato(await r.json());
+  }catch(e){
+    /* Senza rete non si inventa uno stato: si dice che non si sa, e si
+       lascia la strada per la pagina vera. */
+    box.innerHTML = '<p class="mini">Non riusciamo a leggere lo stato adesso.</p>' +
+      '<button class="btn btn-vuoto st-ref" type="button" data-ristato>Riprova</button>' + pieStato();
+  }
+}
+
+function disegnaStato(o){
+  const cons = o.deliveryType === 'domicilio';
+  const hhmm = i => i ? new Date(i).toLocaleTimeString('it-IT',
+    { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Rome' }) : null;
+
+  if(o.status === 'RIFIUTATO' || o.status === 'ANNULLATO'){
+    $('stato-corpo').innerHTML =
+      '<p class="st-code">' + escSt(o.code) + '</p>' +
+      '<p class="st-eta">Ordine annullato</p>' +
+      '<p class="st-lead">Chiamaci se pensi ci sia stato un errore.</p>' + pieStato();
+    return;
+  }
+
+  const idx = POS_STATO[o.status];
+  const posto = (idx === undefined) ? -1 : idx;
+  const eta = hhmm(o.etaAt);
+
+  const testa = eta
+    ? '<p class="st-eta">' + (cons ? 'Consegna alle ' : 'Ritiro alle ') + escSt(eta) + '</p>' +
+      '<p class="st-lead">Confermato dalla pizzeria.</p>'
+    : '<p class="st-eta">' + (o.requestedSlot
+          ? (cons ? 'Chiesto per le ' : 'Ritiro per le ') + escSt(o.requestedSlot)
+          : 'Il prima possibile') + '</p>' +
+      '<p class="st-lead">' + (o.opensAt
+          ? 'Adesso siamo chiusi. Il tuo ordine è arrivato ed è al sicuro: te lo ' +
+            'confermiamo all\'apertura, <b>' + escSt(o.opensAt.dayLabel) + ' alle ' +
+            escSt(o.opensAt.time) + '</b>.'
+          : 'In attesa di conferma dalla pizzeria.') + '</p>';
+
+  const fasi = FASI_STATO.map(function(f, i){
+    if(!cons && f[0] === 'IN_CONSEGNA') return '';
+    const cls = posto < 0 ? '' : (i < posto ? 'fatta' : i === posto ? 'ora' : '');
+    return '<li class="' + cls + '">' + f[1] + '</li>';
+  }).join('');
+
+  $('stato-corpo').innerHTML =
+    '<p class="st-code">' + escSt(o.code) + '</p>' + testa +
+    '<ol class="st-fasi">' + fasi + '</ol>' +
+    '<p class="mini">Nelle serate di punta queste spunte possono restare indietro: in ' +
+      'pizzeria si pensa prima ai tranci e poi al tablet. L\'ordine va avanti lo stesso.</p>' +
+    '<div style="margin-top:1.2rem">' +
+      '<div class="st-riga"><span>' + (cons ? 'Consegna a domicilio' : 'Ritiro in pizzeria') +
+        '</span></div>' +
+      '<div class="st-riga tot"><span>Totale</span><span>' + eur(o.totalCents / 100) +
+        '</span></div>' +
+    '</div>' +
+    '<button class="btn btn-vuoto st-ref" type="button" data-ristato>Aggiorna lo stato</button>' +
+    pieStato();
+}
+
+/* Il link alla pagina vera: per salvarlo nei preferiti o mandarlo a
+   qualcuno. Non e' il modo normale di guardare lo stato, e' la via
+   d'uscita per chi la vuole. */
+function pieStato(){
+  return urlStato
+    ? '<p class="mini" style="text-align:center"><a href="' + escSt(urlStato) +
+      '" target="_blank" rel="noopener">Apri la pagina nel browser</a></p>'
+    : '';
+}
+
+document.addEventListener('click', e => {
+  if(e.target.closest('[data-stato]')){ e.preventDefault(); return apriStato(); }
+  if(e.target.closest('[data-ristato]')) return caricaStato();
+  if(e.target.closest('[data-chiudi-stato]')) chiudiStato();
+});
+
 
 /* Il service worker non serve a funzionare offline — non mette niente in
    cache. Serve perché Chrome offra l'installazione vera invece di una
@@ -2043,8 +2219,8 @@ function ordineFatto(d){
     (quando ? ' ' + quando + '.' : ' il prima possibile.') +
     ' Se serve ti chiamiamo al ' + $('ck-tel').value.trim() + '.';
   const link = $('fatto-stato');
-  if(d.statusUrl){ link.href = d.statusUrl; link.hidden = false; }
-  else link.hidden = true;
+  ricordaOrdine(d.token, d.statusUrl);
+  link.hidden = !(d.token || d.statusUrl);
 
   PASSI.forEach(x => { $(x.id).hidden = true; });
   $('p-fatto').hidden = false;
