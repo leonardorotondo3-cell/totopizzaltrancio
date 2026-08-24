@@ -586,8 +586,8 @@ ol.st-fasi li.ora::before{background:var(--rosso);border-color:var(--rosso);
       <input id="cerca" class="cerca" type="search" placeholder="Cerca una pizza, un ingrediente…" autocomplete="off">
       <div class="filtri" role="group" aria-label="Filtra il menu">
         <button class="filtro" data-c="tutto" aria-pressed="true">Tutto</button>
-        <button class="filtro" data-c="classiche" aria-pressed="false">Classiche</button>
         <button class="filtro" data-c="speciali" aria-pressed="false">Speciali</button>
+        <button class="filtro" data-c="classiche" aria-pressed="false">Classiche</button>
         <button class="filtro" data-c="fritti" aria-pressed="false">Sfizi fritti</button>
         <button class="filtro" data-c="bevande" aria-pressed="false">Bevande</button>
         <button class="filtro" data-c="birre" aria-pressed="false">Birre</button>
@@ -1325,7 +1325,7 @@ stato(); setInterval(stato, 60000);
 
 /* ---------- menu ---------- */
 const ETICHETTE = {classiche:'I classici', speciali:'I sette speciali', fritti:'Sfizi fritti', bevande:'Bevande', birre:'Birre', dolci:'Dolci'};
-const ORDINE = ['classiche','speciali','fritti','bevande','birre','dolci'];
+const ORDINE = ['speciali','classiche','fritti','bevande','birre','dolci'];
 let filtro = 'tutto', cerca = '';
 
 function nomeTaglia(t){ return t === 'u' ? '' : ', trancio un ' + (t === '6' ? 'sesto' : 'quarto'); }
