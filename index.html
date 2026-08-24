@@ -4,11 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Totò Pizza al Trancio — Lissone | Alta, soffice, croccante sotto</title>
-<meta name="description" content="Pizza al trancio a Lissone, in Piazza XI Febbraio. Impasto a lunga lievitazione, forno elettrico, taglio 1/6 o 1/4. Chiama il 039 914 0164 e passa a ritirare.">
+<meta name="description" content="Pizza al trancio a Lissone, in Piazza XI Febbraio. Impasto a lunga lievitazione, forno elettrico, taglio 1/6 o 1/4. Ordina online e passa a ritirare.">
 <link rel="canonical" href="https://totopizzaltrancio.onrender.com/">
+
+<!-- ===== installabile sulla home ==================================
+     Il manifest e il service worker sono l'unico motivo per cui questo
+     sito non è più un file solo: senza file veri su disco Chrome non
+     offre l'installazione, e il manifest non si può incorporare. -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#C8102E">
+<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Totò">
+<script>
+/* Chrome lancia `beforeinstallprompt` appena decide che il sito è
+   installabile, e può farlo prima che il resto dello script sia
+   partito. Se l'evento non viene raccolto qui, l'occasione è persa e il
+   pulsante non comparirebbe più: si mette da parte e più sotto lo si
+   riprende. */
+window.__installa = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installa = e;
+  document.dispatchEvent(new Event('installabile')); });
+</script>
 <meta property="og:type" content="restaurant">
 <meta property="og:title" content="Totò Pizza al Trancio — Lissone">
-<meta property="og:description" content="Alta, soffice, croccante sotto. Il trancio di Lissone, in Piazza XI Febbraio. Chiama il 039 914 0164.">
+<meta property="og:description" content="Alta, soffice, croccante sotto. Il trancio di Lissone, in Piazza XI Febbraio. Ordina online e ritira in pizzeria.">
 <meta property="og:url" content="https://totopizzaltrancio.onrender.com/">
 <meta property="og:site_name" content="Totò Pizza al Trancio">
 <meta property="og:locale" content="it_IT">
@@ -64,7 +86,13 @@ h2+p,h2+.occhio{margin-top:.9rem}
 .scuro .occhio{color:#B9AFA8}
 
 /* ruota — elemento firma */
-.ruota .sl-on{fill:var(--rosso)}
+.ruota .btn-app{display:inline-flex;align-items:center;gap:.6rem;margin-top:.6rem}
+.btn-app .ico{width:26px;height:26px;border-radius:7px;flex:none}
+.ist{display:grid;gap:.9rem;padding:.2rem 0 .4rem}
+.ist li{display:flex;align-items:flex-start;gap:.7rem;line-height:1.45}
+.ist .num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--rosso);color:#fff;
+          display:grid;place-items:center;font-weight:700;font-size:.85rem}
+.sl-on{fill:var(--rosso)}
 .ruota .sl-off{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.45}
 .ruota{overflow:visible}
 
@@ -80,8 +108,8 @@ h2+p,h2+.occhio{margin-top:.9rem}
 .top nav{margin-left:auto;display:flex;gap:.4rem;align-items:center}
 .tlink{font-family:var(--display);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;color:#E8E2DE;padding:.5rem .7rem;border-radius:99px}
 .tlink:hover{background:#2A2422}
-.tlink.tel{background:var(--rosso);color:#fff}
-.tlink.tel:hover{background:var(--rosso-scuro)}
+.tlink.ordina{background:var(--rosso);color:#fff}
+.tlink.ordina:hover{background:var(--rosso-scuro)}
 @media (max-width:600px){.tlink.nascondi{display:none}}
 @media (max-width:420px){
   .top-in{gap:.4rem}
@@ -89,7 +117,7 @@ h2+p,h2+.occhio{margin-top:.9rem}
   .marchio{gap:.4rem}
   .marchio-txt b{font-size:1.02rem}
 }
-@media (max-width:340px){.tlink:not(.tel){display:none}}
+@media (max-width:340px){.tlink:not(.ordina){display:none}}
 
 /* hero */
 .hero{background:var(--nero);color:#F4F0EC;padding-top:clamp(2rem,6vw,3.5rem);padding-bottom:0;overflow:hidden}
@@ -460,7 +488,7 @@ body.hero-in-vista .barra{display:none}
       <a class="tlink nascondi" href="#menu">Menu</a>
       <a class="tlink nascondi" href="#dove">Dove siamo</a>
       <a class="tlink" href="https://www.instagram.com/toto_pizza_al_trancio" target="_blank" rel="noopener">Instagram</a>
-      <a class="tlink tel" href="tel:0399140164">Chiama</a>
+      <a class="tlink ordina" href="#menu">Ordina</a>
     </nav>
   </div>
 </header>
@@ -524,7 +552,7 @@ body.hero-in-vista .barra{display:none}
       <div class="taglio"><div id="ruota6"></div><b>1 trancio</b><span>1/6 di teglia<br>la porzione normale</span></div>
       <div class="taglio"><div id="ruota4"></div><b>1 trancio abbondante</b><span>1/4 di teglia<br>per chi ha fame</span></div>
     </div>
-    <p class="occhio" style="margin-top:1rem">Vuoi la teglia intera? Te la prepariamo lo stesso: <a href="tel:0399140164" style="color:var(--rosso)">chiamaci</a> e ti diciamo prezzo e tempi.</p>
+    <p class="occhio" style="margin-top:1rem">Vuoi la teglia intera? Te la prepariamo lo stesso: <a href="https://wa.me/393272257719" target="_blank" rel="noopener" style="color:var(--rosso)">scrivici su WhatsApp</a> e ti diciamo prezzo e tempi.</p>
   </div>
 </section>
 
@@ -561,10 +589,10 @@ body.hero-in-vista .barra{display:none}
     <h2>Vieni a prenderla al banco</h2>
     <div class="banco-griglia">
       <div>
-        <p>Siamo in Piazza XI Febbraio, in centro a Lissone. Chiama, dicci cosa vuoi e a che ora passi: la troviamo pronta e calda, senza attese e senza la maggiorazione dei portali.</p>
+        <p>Siamo in Piazza XI Febbraio, in centro a Lissone. Ordina qui dal sito e dicci a che ora passi: la trovi pronta e calda, senza attese e senza la maggiorazione dei portali.</p>
         <p style="color:#B9AFA8;font-size:.92rem">Se non puoi passare, consegniamo noi a 2,50 €. <!-- BOZZA DA APPROVARE: confermare zona di consegna e ordine minimo --></p>
         <div class="cta-riga" style="margin-bottom:0">
-          <a class="btn btn-rosso" href="tel:0399140164">Chiama 039 914 0164</a>
+          <a class="btn btn-rosso" href="#menu">Ordina e passa a ritirare</a>
           <a class="btn btn-vuoto" href="https://www.google.com/maps/dir/?api=1&destination=Tot%C3%B2%20Pizza%20al%20Trancio%2C%20Piazza%20XI%20Febbraio%2013%2C%2020851%20Lissone%20MB" target="_blank" rel="noopener">Indicazioni</a>
         </div>
       </div>
@@ -590,7 +618,7 @@ body.hero-in-vista .barra{display:none}
         <!-- BOZZA DA APPROVARE: testo storia, mai confermato dal titolare -->
         <p>Quello che le persone notano per primo è il bordo: alto, pieno d'aria, morbido dentro. Viene da un impasto lasciato lievitare a lungo, senza fretta — è la parte del lavoro che non si vede e che decide tutto il resto.</p>
         <p>La cottura è in forno elettrico, la base resta croccante fino all'ultimo morso. Poi ci mettiamo sopra le cose giuste: i classici di sempre e una manciata di tranci speciali che cambiano il modo di guardare una pizza al taglio.</p>
-        <p style="font-size:.92rem;color:var(--grigio)">Il locale è piccolo: qualche tavolino dentro e fuori, gran parte del lavoro è asporto. Se hai fretta, chiama prima e passa a ritirare.</p>
+        <p style="font-size:.92rem;color:var(--grigio)">Il locale è piccolo: qualche tavolino dentro e fuori, gran parte del lavoro è asporto. Se hai fretta, ordina qui e passa a ritirare.</p>
       </div>
     </div>
   </div>
@@ -631,10 +659,10 @@ body.hero-in-vista .barra{display:none}
     <div>
       <p class="eyebrow">Dove siamo</p>
       <p class="indirizzo" style="color:#fff">Piazza XI Febbraio 13 — Lissone</p>
-      <p style="color:#B9AFA8">Siamo in piazza, in centro a Lissone. Chiama prima e la trovi pronta.</p>
+      <p style="color:#B9AFA8">Siamo in piazza, in centro a Lissone. Ordina prima e la trovi pronta.</p>
       <div class="cta-riga" style="margin-bottom:0">
         <a class="btn btn-rosso" href="https://www.google.com/maps/dir/?api=1&destination=Tot%C3%B2%20Pizza%20al%20Trancio%2C%20Piazza%20XI%20Febbraio%2013%2C%2020851%20Lissone%20MB" target="_blank" rel="noopener">Apri in Google Maps</a>
-        <a class="btn btn-vuoto" style="color:#F4F0EC" href="tel:0399140164">039 914 0164</a>
+        <a class="btn btn-vuoto" style="color:#F4F0EC" href="#menu">Ordina</a>
       </div>
     </div>
   </div>
@@ -647,7 +675,7 @@ body.hero-in-vista .barra{display:none}
     <div class="f-griglia">
       <div>
         <p class="f-tit">Totò Pizza al Trancio</p>
-        <p>Piazza XI Febbraio 13<br>20851 Lissone (MB)<br><a href="tel:0399140164">039 914 0164</a></p>
+        <p>Piazza XI Febbraio 13<br>20851 Lissone (MB)<br>039 914 0164</p>
       </div>
       <div>
         <p class="f-tit">Orari</p>
@@ -657,6 +685,10 @@ body.hero-in-vista .barra{display:none}
         <p class="f-tit">Seguici e ordina</p>
         <p><a href="https://www.instagram.com/toto_pizza_al_trancio" target="_blank" rel="noopener">Instagram</a><br>
         <a href="https://deliveroo.it/it/menu/monza/desio-nova-milanese/toto-pizza-al-trancio" target="_blank" rel="noopener">Deliveroo</a> <span style="font-size:.8rem">(prezzi maggiorati dal portale)</span></p>
+        <button class="btn btn-vuoto btn-app" data-installa hidden>
+          <img class="ico" src="/icon-192.png" alt="" width="26" height="26">
+          Installa l'app
+        </button>
       </div>
     </div>
     <div class="f-legale">
@@ -671,6 +703,23 @@ body.hero-in-vista .barra{display:none}
   <button class="ordine" id="ordine-btn" aria-haspopup="dialog">
     Il tuo ordine <span class="cnt" id="cnt">0</span> <span class="sep">·</span> <span class="eur" id="tot-btn">0,00 €</span>
   </button>
+</div>
+
+<!-- ===== come si aggiunge alla home su iPhone =====
+     Apple non dà nessuna API per installare: su iOS l'unica strada è il
+     menu Condividi. Meglio spiegarla in tre righe che far finta di
+     avere un pulsante che non esiste. -->
+<div class="modale" id="m-app" hidden role="dialog" aria-modal="true" aria-labelledby="app-tit">
+  <div class="modale-fondo" data-chiudi-app></div>
+  <div class="modale-box">
+    <div class="modale-testa">
+      <h2 id="app-tit">Mettila sulla home</h2>
+      <button class="chiudi" data-chiudi-app aria-label="Chiudi">×</button>
+    </div>
+    <p class="modale-sub" id="app-intro"></p>
+    <ol class="ist" id="app-passi"></ol>
+    <p class="mini">Da lì si apre come un'app, a tutto schermo, senza passare dal browser.</p>
+  </div>
 </div>
 
 <!-- ===== modale prodotto: togli / aggiungi / cottura / nota ===== -->
@@ -861,6 +910,11 @@ body.hero-in-vista .barra{display:none}
           <p class="fatto-cod">Numero <b id="fatto-codice">—</b></p>
           <p class="mini" id="fatto-testo"></p>
           <a class="btn btn-rosso" id="fatto-stato" target="_blank" rel="noopener" hidden>Segui il tuo ordine</a>
+          <p class="mini" style="margin-top:1.2rem">La prossima volta più in fretta:</p>
+          <button class="btn btn-vuoto btn-app" data-installa hidden style="margin:0 auto">
+            <img class="ico" src="/icon-192.png" alt="" width="26" height="26">
+            Installa l'app
+          </button>
         </div>
       </section>
 
@@ -873,7 +927,6 @@ body.hero-in-vista .barra{display:none}
         <button class="btn btn-rosso" id="invia" hidden>Invia l'ordine</button>
         <p class="esito" id="invio-esito" hidden></p>
         <a class="btn btn-verde" id="wapp" target="_blank" rel="noopener" hidden>Invia ordine su WhatsApp</a>
-        <a class="btn btn-rosso" id="chiama" href="tel:0399140164">Chiama e detta l'ordine</a>
         <button class="btn btn-vuoto" id="copia" style="color:var(--inch)">Copia l'ordine</button>
       </div>
     </div>
@@ -892,6 +945,9 @@ body.hero-in-vista .barra{display:none}
    DATI — da qui si cambia tutto senza toccare il resto
    ============================================================ */
 const DATI = {
+  /* Il numero non è più un pulsante da nessuna parte: resta scritto nel
+     piede e nei dati strutturati, perché a Google e a chi cerca serve,
+     ma gli ordini passano dal sito. */
   tel:        '0399140164',
   telVis:     '039 914 0164',
   wa:         '393272257719',              /* BOZZA DA APPROVARE: numero letto dal portatovaglioli */
@@ -924,6 +980,84 @@ const DATI = {
 };
 const MENU = [{"n":"4 formaggi","d":"Pomodoro, mozzarella, brie, gorgonzola, parmigiano, origano","p":{"6":7.2,"4":10.3},"c":"classiche","f":"4-formaggi","ing":["Pomodoro","Mozzarella","Brie","Gorgonzola","Parmigiano","Origano"]},{"n":"Bianca","d":"Mozzarella, origano","p":{"6":8.0},"c":"classiche","f":"bianca","ing":["Mozzarella","Origano"]},{"n":"Capricciosa","d":"Pomodoro, mozzarella, funghi, prosciutto, carciofini, olive, origano","p":{"6":7.6,"4":11.3},"c":"classiche","f":"capricciosa","ing":["Pomodoro","Mozzarella","Funghi","Prosciutto","Carciofini","Olive","Origano"]},{"n":"Cotto, cipolle e nduja","d":"Pomodoro, mozzarella, prosciutto, cipolle, nduja, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"cotto-cipolle-e-nduja","ing":["Pomodoro","Mozzarella","Prosciutto","Cipolle","Nduja","Origano"]},{"n":"Diavola","d":"Pomodoro, mozzarella, salame piccante, origano","p":{"6":6.8,"4":9.2},"c":"classiche","f":"diavola","ing":["Pomodoro","Mozzarella","Salame piccante","Origano"]},{"n":"Diavola e gorgonzola","d":"Pomodoro, mozzarella, spianata piccante, gorgonzola, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"diavola-e-gorgonzola","ing":["Pomodoro","Mozzarella","Spianata piccante","Gorgonzola","Origano"]},{"n":"Margherita","d":"Pomodoro, mozzarella, origano","p":{"6":6.3,"4":8.5},"c":"classiche","f":"margherita","ing":["Pomodoro","Mozzarella","Origano"]},{"n":"Napoli","d":"Pomodoro, mozzarella, acciughe, origano","p":{"6":6.8,"4":9.2},"c":"classiche","f":"napoli","ing":["Pomodoro","Mozzarella","Acciughe","Origano"]},{"n":"Ortolana","d":"Pomodoro, mozzarella, zucchine, melanzane, peperoni, origano","p":{"6":7.2,"4":9.9},"c":"classiche","f":"ortolana","ing":["Pomodoro","Mozzarella","Zucchine","Melanzane","Peperoni","Origano"]},{"n":"Peperoni e salsiccia","d":"Pomodoro, mozzarella, peperoni, salsiccia, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"peperoni-e-salsiccia","ing":["Pomodoro","Mozzarella","Peperoni","Salsiccia","Origano"]},{"n":"Porcini e gorgonzola","d":"Pomodoro, mozzarella, porcini, gorgonzola, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"porcini-e-gorgonzola","ing":["Pomodoro","Mozzarella","Porcini","Gorgonzola","Origano"]},{"n":"Porcini speck e grana","d":"Pomodoro, mozzarella, porcini, speck, scaglie di grana, origano","p":{"6":7.6,"4":11.2},"c":"classiche","f":"porcini-speck-e-grana","ing":["Pomodoro","Mozzarella","Porcini","Speck","Scaglie di grana","Origano"]},{"n":"Prosciutto","d":"Pomodoro, mozzarella, prosciutto, origano","p":{"6":6.8,"4":9.2},"c":"classiche","f":"prosciutto","ing":["Pomodoro","Mozzarella","Prosciutto","Origano"]},{"n":"Prosciutto e funghi","d":"Pomodoro, mozzarella, prosciutto, funghi, origano","p":{"6":7.2,"4":9.9},"c":"classiche","f":"prosciutto-e-funghi","ing":["Pomodoro","Mozzarella","Prosciutto","Funghi","Origano"]},{"n":"Prosciutto e zucchine","d":"Pomodoro, mozzarella, prosciutto, zucchine, origano","p":{"6":7.2,"4":10.3},"c":"classiche","f":"prosciutto-e-zucchine","ing":["Pomodoro","Mozzarella","Prosciutto","Zucchine","Origano"]},{"n":"Prosciutto, funghi e salame","d":"Pomodoro, mozzarella, prosciutto, funghi, salame piccante, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"prosciutto-funghi-e-salame","ing":["Pomodoro","Mozzarella","Prosciutto","Funghi","Salame piccante","Origano"]},{"n":"Rossa","d":"Pomodoro origano","p":{"6":5.3,"4":7.4},"c":"classiche","f":"rossa","ing":["Pomodoro origano"]},{"n":"Salsiccia e friarielli","d":"Pomodoro, mozzarella, salsiccia, friarielli, origano","p":{"6":7.6,"4":10.5},"c":"classiche","f":"salsiccia-e-friarielli","ing":["Pomodoro","Mozzarella","Salsiccia","Friarielli","Origano"]},{"n":"Salsiccia e funghi","d":"Pomodoro, mozzarella, salsiccia, funghi, origano","p":{"6":7.6},"c":"classiche","f":"salsiccia-e-funghi","ing":["Pomodoro","Mozzarella","Salsiccia","Funghi","Origano"]},{"n":"Salsiccia e patatine","d":"Pomodoro, mozzarella, salsiccia, patatine fritte, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"salsiccia-e-patatine","ing":["Pomodoro","Mozzarella","Salsiccia","Patatine fritte","Origano"]},{"n":"Scamorza e speck","d":"Pomodoro, mozzarella, scamorza, speck, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"scamorza-e-speck","ing":["Pomodoro","Mozzarella","Scamorza","Speck","Origano"]},{"n":"Speck e brie","d":"Pomodoro, mozzarella, speck, brie, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"speck-e-brie","ing":["Pomodoro","Mozzarella","Speck","Brie","Origano"]},{"n":"Tonno e carciofini","d":"Pomodoro, mozzarella, tonno, carciofi, origano","p":{"6":7.6,"4":10.7},"c":"classiche","f":"tonno-e-carciofini","ing":["Pomodoro","Mozzarella","Tonno","Carciofi","Origano"]},{"n":"Tonno e cipolle","d":"Pomodoro, mozzarella, tonno, cipolle, origano","p":{"6":7.2,"4":9.9},"c":"classiche","f":"tonno-e-cipolle","ing":["Pomodoro","Mozzarella","Tonno","Cipolle","Origano"]},{"n":"Würstel e patatine","d":"Pomodoro, mozzarella, würstel, patatine, origano","p":{"6":7.2,"4":9.9},"c":"classiche","f":"wurstel-e-patatine","ing":["Pomodoro","Mozzarella","Würstel","Patatine","Origano"]},{"n":"Crokké","d":"Pomodoro, mozzarella, scamorza, crocchette di patata, cotto, crema di pecorino","p":{"4":14.5,"6":10.0},"c":"speciali","f":"crokke","ing":["Pomodoro","Mozzarella","Scamorza","Crocchette di patata","Cotto","Crema di pecorino"]},{"n":"Golosa","d":"Pomodoro, mozzarella, speck, crema di gorgonzola, noci, origano","p":{"4":12.2,"6":9.7},"c":"speciali","f":"golosa","ing":["Pomodoro","Mozzarella","Speck","Crema di gorgonzola","Noci","Origano"]},{"n":"Nerano","d":"Pomodoro, mozzarella, brie, chips di zucchine, crema di pecorino, origano","p":{"4":12.2,"6":9.7},"c":"speciali","f":"nerano","ing":["Pomodoro","Mozzarella","Brie","Chips di zucchine","Crema di pecorino","Origano"]},{"n":"Regina","d":"Pomodoro, mozzarella, crudo, rucola, pomodorini semidried, scaglie di grana","p":{"4":14.5,"6":10.0},"c":"speciali","f":"regina","ing":["Pomodoro","Mozzarella","Crudo","Rucola","Pomodorini semidried","Scaglie di grana"]},{"n":"Saggia","d":"Pomodoro, mozzarella, scamorza, speck, crema di asparagi, origano","p":{"4":12.2,"6":9.7},"c":"speciali","f":"saggia","ing":["Pomodoro","Mozzarella","Scamorza","Speck","Crema di asparagi","Origano"]},{"n":"Solare","d":"Pomodoro, mozzarella, prosciutto cotto, pomodorini secchi, crema di carciofi, origano","p":{"4":12.2,"6":9.7},"c":"speciali","f":"solare","ing":["Pomodoro","Mozzarella","Prosciutto cotto","Pomodorini secchi","Crema di carciofi","Origano"]},{"n":"Tartufata","d":"Pomodoro, mozzarella, salsiccia, funghi porcini, crema di tartufo, origano","p":{"4":12.2,"6":9.7},"c":"speciali","f":"tartufata","ing":["Pomodoro","Mozzarella","Salsiccia","Funghi porcini","Crema di tartufo","Origano"]},{"n":"Patatine fritte","d":"porzione","p":{"u":4.5},"c":"fritti","f":"patatine-fritte","ing":[]},{"n":"Mini frittatine di pasta","d":"6 pezzi","p":{"u":4.5},"c":"fritti","f":"mini-frittatine-di-pasta","ing":[]},{"n":"Crocchette di patate","d":"7 pezzi","p":{"u":5.5},"c":"fritti","f":"crocchette-di-patate","ing":[]},{"n":"Mozzarelline","d":"6 pezzi","p":{"u":4.5},"c":"fritti","f":"mozzarelline","ing":[]},{"n":"Anelli di cipolla","d":"7 pezzi","p":{"u":4.0},"c":"fritti","f":"anelli-di-cipolla","ing":[]},{"n":"Nuggets di pollo","d":"6 pezzi","p":{"u":5.0},"c":"fritti","f":"nuggets-di-pollo","ing":[]},{"n":"Arancini","d":"6 pezzi","p":{"u":4.5},"c":"fritti","f":"arancini","ing":[]},{"n":"Mini calzoncelli","d":"4 pezzi","p":{"u":4.5},"c":"fritti","f":"mini-calzoncelli","ing":[]},{"n":"Olive ascolane","d":"6 pezzi","p":{"u":4.5},"c":"fritti","f":"olive-ascolane","ing":[]},{"n":"Coca-Cola Zero 33cl","d":"","p":{"u":3.0},"c":"bevande","f":"coca-cola-zero-33cl","ing":[]},{"n":"Coca-Cola 33cl","d":"","p":{"u":3.0},"c":"bevande","f":"coca-cola-33cl","ing":[]},{"n":"Fanta","d":"","p":{"u":3.0},"c":"bevande","f":"fanta","ing":[]},{"n":"Estathé pesca","d":"","p":{"u":3.0},"c":"bevande","f":"estathe-pesca","ing":[]},{"n":"Acqua naturale 50cl","d":"","p":{"u":1.5},"c":"bevande","f":"acqua-naturale-50cl","ing":[]},{"n":"Acqua frizzante 50cl","d":"","p":{"u":1.5},"c":"bevande","f":"acqua-frizzante-50cl","ing":[]},{"n":"Estathé limone","d":"","p":{"u":3.0},"c":"bevande","f":"estathe-limone","ing":[]},{"n":"Moretti 66cl","d":"","p":{"u":4.5},"c":"birre","f":"moretti-66cl","ing":[]},{"n":"Ichnusa 33cl","d":"","p":{"u":3.5},"c":"birre","f":"ichnusa-33cl","ing":[]},{"n":"Beck's 33cl","d":"","p":{"u":3.0},"c":"birre","f":"becks-33cl","ing":[]},{"n":"Heineken 33cl","d":"","p":{"u":3.5},"c":"birre","f":"heineken-33cl","ing":[]},{"n":"Menabrea 33cl","d":"","p":{"u":3.5},"c":"birre","f":"menabrea-33cl","ing":[]},{"n":"Tennent's 33cl","d":"","p":{"u":4.0},"c":"birre","f":"tennents-33cl","ing":[]},{"n":"Trancio abbondante alla Nutella","d":"dolce","p":{"u":9.0},"c":"dolci","f":"trancio-abbondante-alla-nutella","ing":[]},{"n":"Trancio abbondante Nutella e pistacchio","d":"dolce","p":{"u":10.0},"c":"dolci","f":"trancio-abbondante-nutella-e-pistacchio","ing":[]}];
 const AGGIUNTE = [{"n":"Alici","p":1.5},{"n":"Brie","p":1.0},{"n":"Carciofini","p":1.5},{"n":"Champignon","p":1.0},{"n":"Cipolla","p":1.0},{"n":"Crema di asparagi","p":2.0},{"n":"Crema di carciofi","p":2.0},{"n":"Crema di gorgonzola","p":2.0},{"n":"Crema di pecorino","p":2.0},{"n":"Crema di tartufo","p":2.0},{"n":"Friarielli","p":1.5},{"n":"Funghi porcini","p":2.2},{"n":"Mozzarella","p":1.2},{"n":"Nduja","p":1.0},{"n":"Olive","p":1.0},{"n":"Patatine fritte","p":1.3},{"n":"Pomodorini secchi","p":1.5},{"n":"Pomodoro","p":1.0},{"n":"Salame dolce","p":2.0},{"n":"Salame piccante","p":1.5},{"n":"Salsiccia","p":1.5},{"n":"Scamorza","p":1.0},{"n":"Speck","p":2.0},{"n":"Tonno","p":1.5},{"n":"Würstel","p":1.2}];
+
+/* ============================================================
+   METTILA SULLA HOME
+
+   Due mondi diversi, e conviene dirlo chiaro:
+
+   · Android/Chrome — c'è `beforeinstallprompt`, e il pulsante apre
+     l'installazione vera: l'app finisce nel cassetto con la sua icona.
+   · iPhone — Apple non dà nessuna API. L'unica strada è Condividi →
+     Aggiungi a Home, quindi il pulsante mostra le istruzioni. Fingere
+     un'installazione che non può avvenire sarebbe peggio che spiegarla.
+
+   Il pulsante non si mostra mai a vuoto: sparisce se l'app è già
+   installata, e su un browser che non sa installare niente.
+   ============================================================ */
+
+const suIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const inSafari = () => /safari/i.test(navigator.userAgent) &&
+  !/crios|fxios|edgios|opios/i.test(navigator.userAgent);
+const giaInstallata = () => matchMedia('(display-mode: standalone)').matches ||
+  navigator.standalone === true;
+
+function sincInstalla(){
+  const si = !giaInstallata() && (window.__installa || suIOS());
+  document.querySelectorAll('[data-installa]').forEach(b => { b.hidden = !si; });
+}
+
+async function installa(){
+  if(window.__installa){
+    const e = window.__installa;
+    window.__installa = null;                 /* si può usare una volta sola */
+    e.prompt();
+    try{ await e.userChoice; }catch(err){}
+    sincInstalla();
+    return;
+  }
+  istruzioniHome();
+}
+
+function istruzioniHome(){
+  const passi = suIOS()
+    ? (inSafari()
+        ? ['Tocca <b>Condividi</b> in basso — il quadrato con la freccia che esce.',
+           'Scorri e tocca <b>Aggiungi alla schermata Home</b>.',
+           'Tocca <b>Aggiungi</b> in alto a destra.']
+        : ['Apri questa pagina in <b>Safari</b>: da Chrome iPhone non lo permette.',
+           'Tocca <b>Condividi</b>, poi <b>Aggiungi alla schermata Home</b>.'])
+    : ['Apri il menu del browser — i <b>tre puntini</b> in alto.',
+       'Tocca <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'];
+  $('app-intro').textContent = suIOS()
+    ? 'Su iPhone si fa in tre tocchi:'
+    : 'Dal menu del browser, in due tocchi:';
+  $('app-passi').innerHTML = passi.map((t, i) =>
+    '<li><span class="num">' + (i + 1) + '</span><span>' + t + '</span></li>').join('');
+  $('m-app').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+document.addEventListener('click', e => {
+  if(e.target.closest('[data-installa]')) return installa();
+  if(e.target.closest('[data-chiudi-app]')){
+    $('m-app').hidden = true;
+    if(document.getElementById('drawer').hidden) document.body.style.overflow = '';
+  }
+});
+document.addEventListener('installabile', sincInstalla);
+addEventListener('appinstalled', () => { window.__installa = null; sincInstalla(); });
+sincInstalla();
+
+/* Il service worker non serve a funzionare offline — non mette niente in
+   cache. Serve perché Chrome offra l'installazione vera invece di una
+   scorciatoia del browser. */
+if('serviceWorker' in navigator){
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 
 /* ---------- elemento firma: la ruota del trancio ---------- */
 function ruota(n, dim, pieni){
@@ -1905,9 +2039,6 @@ async function inviaOrdine(){
   }
 }
 $('invia').addEventListener('click', inviaOrdine);
-$('chiama').addEventListener('click', () => {
-  if(navigator.clipboard) navigator.clipboard.writeText(testoOrdine(false)).catch(() => {});
-});
 $('copia').addEventListener('click', async () => {
   const b = $('copia');
   try{ await navigator.clipboard.writeText(testoOrdine(true)); b.textContent = 'Ordine copiato ✓'; }
