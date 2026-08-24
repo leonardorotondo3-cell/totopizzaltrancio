@@ -925,6 +925,7 @@ body.hero-in-vista .barra{display:none}
       <button class="btn btn-rosso" id="avanti">Continua</button>
       <div class="azioni" id="azioni-finali" hidden>
         <button class="btn btn-rosso" id="invia" hidden>Invia l'ordine</button>
+        <p class="avviso-min" id="invio-perche" hidden></p>
         <p class="esito" id="invio-esito" hidden></p>
         <a class="btn btn-verde" id="wapp" target="_blank" rel="noopener" hidden>Invia ordine su WhatsApp</a>
         <button class="btn btn-vuoto" id="copia" style="color:var(--inch)">Copia l'ordine</button>
@@ -1939,9 +1940,22 @@ function sincInvio(){
     if(DATI.wa) w.href = linkWhatsApp();
   }
   if(b){
+    const manca = mancaAlMinimo();
     b.hidden = !ordiniOnline;
-    b.disabled = invioInCorso || mancaAlMinimo() > 0;
+    b.disabled = invioInCorso || manca > 0;
     b.textContent = invioInCorso ? 'Invio…' : "Invia l'ordine";
+
+    /* Un tasto spento senza motivo è il modo più rapido per far
+       chiudere la pagina. La spiegazione va qui, attaccata al tasto:
+       l'avviso del minimo nel riepilogo sta sotto il bordo dello
+       schermo, coperto proprio dalla barra dove il tasto vive. */
+    const perche = $('invio-perche');
+    if(perche){
+      perche.hidden = !(manca > 0) || b.hidden;
+      if(manca > 0) perche.innerHTML = 'Mancano <b>' + eur(manca) + '</b> al minimo di <b>' +
+        eur(DATI.minOrdine) + '</b> per la consegna a casa. Aggiungi qualcosa, ' +
+        'oppure passa al ritiro in pizzeria.';
+    }
   }
 }
 
