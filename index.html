@@ -1588,6 +1588,50 @@ function disegnaSuggerimenti(){
     b.addEventListener('click', () => { extraAggiunto = true; aggiungi(+b.dataset.sugg, 'u'); }));
 }
 
+
+/* ============================================================
+   Capienza delle consegne
+
+   Un rider porta una consegna ogni quarto d'ora. Il servizio sa quali
+   quarti d'ora hanno già tutti i rider impegnati — contando gli orari
+   confermati dalla pizzeria negli ordini di prima — e quelli qui non
+   si propongono. Un orario che non si può rispettare è peggio di un
+   orario in meno.
+
+   Se il servizio non risponde, o se la pizzeria non ha messo nessun
+   rider, si torna a proporre tutto: meglio un orario da spostare al
+   telefono che un carrello che non si chiude.
+   ============================================================ */
+let slotPieni = new Set(), capienzaOn = false, capienzaOggi = '';
+
+async function leggiCapienza(){
+  if(!DATI.api || !DATI.negozio) return;
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 6000);
+    const r = await fetch(DATI.api + '/api/slots?shop=' + encodeURIComponent(DATI.negozio),
+                          { signal: c.signal });
+    clearTimeout(t);
+    if(!r.ok) return;
+    const d = await r.json();
+    capienzaOn   = !!(d.consegna && d.consegna.attiva);
+    capienzaOggi = (d.consegna && d.consegna.oggi) || '';
+    slotPieni    = new Set((d.consegna && d.consegna.pieni) || []);
+  } catch { /* si resta con quello che si sa */ }
+}
+
+/* "2026-08-24 20:30": lo slot delle `hhmm` fra `salti` giorni, contati
+   dal calendario del negozio e non da quello del telefono del cliente. */
+function chiaveSlot(salti, hhmm){
+  if(!capienzaOggi) return '';
+  const [y, m, g] = capienzaOggi.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, g + salti)).toISOString().slice(0, 10) + ' ' + hhmm;
+}
+
+/* Il ritiro in pizzeria non impegna nessun rider: lì gli orari restano tutti. */
+const slotPieno = (salti, hhmm) =>
+  !!(capienzaOn && modo === 'consegna' && slotPieni.has(chiaveSlot(salti, hhmm)));
+
 function fasce(){
   const {g, min} = oraRoma();
   const dellaFascia = (giorno, sera) => (DATI.orari[giorno] || []).find(([a]) => sera ? m2(a) >= 16 * 60 : m2(a) < 16 * 60);
@@ -1599,29 +1643,42 @@ function fasce(){
     while(salti <= 7 && (!f || m2(f[1]) < dopo)){
       salti++; giorno = (g + salti) % 7; dopo = 0; f = dellaFascia(giorno, sera);
     }
-    if(!f){ s.innerHTML = '<option value="">non disponibile</option>'; s.disabled = true; return; }
+    if(!f){ s.innerHTML = '<option value="">non disponibile</option>'; s.disabled = true;
+            return { proposti: 0, tolti: 0 }; }
     const quando = salti === 0 ? '' : (salti === 1 ? 'domani ' : GIORNI[giorno].toLowerCase() + ' ');
     s.disabled = false;
-    let o = '<option value="">—</option>';
+    let o = '<option value="">\u2014</option>', proposti = 0, tolti = 0;
     for(let t = m2(f[0]); t <= m2(f[1]); t += 15){
       if(t < dopo) continue;
       const hh = String(Math.floor(t / 60)).padStart(2, '0'), mm = String(t % 60).padStart(2, '0');
+      /* Orario con i rider già tutti impegnati: non si propone. */
+      if(slotPieno(salti, hh + ':' + mm)){ tolti++; continue; }
+      proposti++;
       o += '<option value="' + quando + hh + ':' + mm + '">' + quando + hh + ':' + mm + '</option>';
     }
     s.innerHTML = o;
+    s.disabled = proposti === 0;
+    return { proposti, tolti };
   };
-  riempi('ck-pranzo', false, 'pranzo');
-  riempi('ck-cena', true, 'cena');
+  const cp = riempi('ck-pranzo', false, 'pranzo') || { proposti: 0, tolti: 0 };
+  const cc = riempi('ck-cena', true, 'cena')   || { proposti: 0, tolti: 0 };
 
   const oggi = DATI.orari[g] || [];
   const aperto = oggi.some(([a, b]) => min < m2(b));
   const av = $('ck-avviso-giorno');
-  if(!aperto){
-    av.innerHTML = oggi.length
-      ? 'Per oggi abbiamo chiuso: qui sotto trovi i primi orari disponibili.'
-      : 'Oggi siamo <b>chiusi</b>. Lascia comunque i tuoi dati e l\'orario che preferisci: ti rispondiamo alla riapertura.';
-    av.hidden = false;
-  } else av.hidden = true;
+  const tolti = cp.tolti + cc.tolti, restano = cp.proposti + cc.proposti;
+  /* Le due cose da dire non si escludono: la pizzeria può essere chiusa
+     oggi E avere gia' preso le consegne di qualche orario di domani. Un
+     avviso solo che ne copre un altro fa sembrare l'elenco sbagliato. */
+  const avvisi = [];
+  if(!aperto) avvisi.push(oggi.length
+    ? 'Per oggi abbiamo chiuso: qui sotto trovi i primi orari disponibili.'
+    : 'Oggi siamo <b>chiusi</b>. Lascia comunque i tuoi dati e l\'orario che preferisci: ti rispondiamo alla riapertura.');
+  if(tolti) avvisi.push(restano
+    ? 'Qualche orario non c\'è più: le consegne di quel quarto d\'ora sono già tutte prese.'
+    : 'Le consegne sono <b>tutte prese</b>. Lascia comunque i tuoi dati: ti richiamiamo per trovare un orario.');
+  av.innerHTML = avvisi.join(' ');
+  av.hidden = !avvisi.length;
 }
 $('ck-pranzo').addEventListener('change', () => { if($('ck-pranzo').value) $('ck-cena').value = ''; });
 $('ck-cena').addEventListener('change', () => { if($('ck-cena').value) $('ck-pranzo').value = ''; });
@@ -2099,7 +2156,9 @@ function disegnaPasso(){
   document.querySelector('.piede-tot').hidden = finale;   /* nel riepilogo il totale c'è già */
   $('piede-etichetta').textContent = p.id === 'p-ordine' ? 'Totale parziale' : 'Totale';
   if(!finale) $('avanti').textContent = (p.id === 'p-extra' && extraAggiunto) ? 'Continua' : p.avanti;
-  if(p.id === 'p-quando') fasce();
+  /* Si disegna subito con quello che si sa, e intanto si va a chiedere
+     al servizio quali quarti d'ora sono già pieni. */
+  if(p.id === 'p-quando'){ fasce(); leggiCapienza().then(fasce); }
   if(finale) disegnaRecap();
 }
 
