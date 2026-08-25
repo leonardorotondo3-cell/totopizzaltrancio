@@ -490,6 +490,25 @@ ol.st-fasi li.ora::before{background:var(--rosso);border-color:var(--rosso);
   margin-top:.5rem;padding-top:.6rem}
 .st-ref{border-color:var(--carta-2);color:var(--inch);width:100%;justify-content:center;margin-top:1.1rem}
 .st-ref:hover{border-color:var(--rosso);color:var(--rosso);background:none}
+
+/* ---- la barra "mettila sulla home", all'ingresso ---- */
+.app-barra{position:fixed;left:10px;right:10px;bottom:12px;z-index:85;
+  display:flex;align-items:center;gap:.7rem;padding:.7rem .75rem;border-radius:12px;
+  background:var(--carta);border:1px solid var(--carta-2);
+  box-shadow:0 18px 42px -20px rgba(20,17,16,.6);
+  transform:translateY(150%);opacity:0;pointer-events:none;
+  transition:transform .34s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.app-barra.on{transform:translateY(0);opacity:1;pointer-events:auto}
+.app-barra > img{width:34px;height:34px;border-radius:9px;flex:none}
+.ab-txt{flex:1;min-width:0;line-height:1.28}
+.ab-txt strong{display:block;font-size:.83rem;font-weight:700;color:var(--inch)}
+.ab-txt span{display:block;font-size:.72rem;color:var(--grigio);margin-top:.12rem}
+.ab-si{flex:none;padding:.55rem .9rem;font-size:.78rem}
+.ab-no{flex:none;width:26px;height:26px;padding:0;border:0;background:transparent;
+  color:var(--grigio);font-size:.85rem;line-height:1;cursor:pointer}
+.ab-no:hover{color:var(--inch)}
+@media(min-width:700px){ .app-barra{left:auto;right:18px;width:390px} }
+@media (prefers-reduced-motion:reduce){ .app-barra{transition:opacity .2s} }
 .btn[disabled]{opacity:.5;pointer-events:none}
 </style>
 </head>
@@ -971,6 +990,17 @@ ol.st-fasi li.ora::before{background:var(--rosso);border-color:var(--rosso);
   </div>
 </div>
 
+<!-- La "notifica" all'ingresso: vedi il commento accanto a barraApp(). -->
+<div class="app-barra" id="app-barra" role="region" aria-label="Installa l'app">
+  <img src="/icon-192.png" alt="" width="34" height="34">
+  <div class="ab-txt">
+    <strong>Mettila sulla home</strong>
+    <span>Ordini in due tocchi, senza cercare l'indirizzo.</span>
+  </div>
+  <button class="btn btn-rosso ab-si" type="button" data-installa>Installa</button>
+  <button class="ab-no" type="button" data-app-no aria-label="Non adesso">&#10005;</button>
+</div>
+
 <nav class="barra" id="barra" aria-label="Azioni rapide"></nav>
 
 <script type="application/ld+json">
@@ -1062,6 +1092,58 @@ function sincInstalla(){
   document.querySelectorAll('[data-installa]').forEach(b => { b.hidden = !si; });
 }
 
+/* ---- la barra all'ingresso ------------------------------------------
+   Non è una notifica di sistema: quelle vogliono un permesso, Chrome le
+   blocca se le chiedi appena entrati e Safari non le dà affatto a un sito
+   che non è installato. Questa è una barra del sito, e si comporta come
+   si aspetta chi la vede: arriva da sola dopo qualche secondo, si toglie
+   con una croce, e se la togli non torna per un mese. Non compare mentre
+   si sta ordinando. ------------------------------------------------- */
+const NIENTE_BARRA = 'sf.app.no', UN_MESE = 30 * 864e5;
+
+function barraApp(){
+  const el = $('app-barra');
+  if(!el || giaInstallata()) return;
+  let quando = 0;
+  try{ quando = Number(localStorage.getItem(NIENTE_BARRA) || 0); }catch(e){}
+  if(Date.now() - quando < UN_MESE) return;      /* l'ha già tolta: si sta zitti */
+  setTimeout(() => {
+    if (!$('drawer').hidden) return;                /* sta ordinando: non si disturba */
+    el.classList.add('on');
+    posaLaBarra();
+  }, 3500);
+}
+
+/* La barra in fondo va e viene: su Totò sparisce finché si vede l'hero e
+   torna appena si scorre, su Mr. Pizza cresce col carrello pieno, e sullo
+   schermo largo non c'è affatto. Misurata una volta sola all'apertura,
+   dieci secondi dopo il conto è già sbagliato e l'invito finisce coperto.
+   Quindi si rimisura: all'apertura, scorrendo e ruotando il telefono. */
+function posaLaBarra(){
+  const el = $('app-barra');
+  if (!el || !el.classList.contains('on')) return;
+  const b = document.querySelector('.barra');
+  /* su un elemento display:none il rettangolo è tutto a zero: torna 0 da
+     solo, senza doverglielo chiedere */
+  el.style.bottom = ((b ? b.getBoundingClientRect().height : 0) + 12) + 'px';
+}
+
+let posaInCoda = false;
+const ripesa = () => {
+  if (posaInCoda) return;
+  posaInCoda = true;
+  requestAnimationFrame(() => { posaInCoda = false; posaLaBarra(); });
+};
+addEventListener('scroll', ripesa, { passive: true });
+addEventListener('resize', ripesa, { passive: true });
+
+function viaLaBarra(perSempre){
+  const el = $('app-barra'); if(el) el.classList.remove('on');
+  if(perSempre) try{ localStorage.setItem(NIENTE_BARRA, String(Date.now())); }catch(e){}
+}
+
+addEventListener('load', barraApp);
+
 async function installa(){
   if(window.__installa){
     const e = window.__installa;
@@ -1097,7 +1179,8 @@ function istruzioniHome(){
 }
 
 document.addEventListener('click', e => {
-  if(e.target.closest('[data-installa]')) return installa();
+  if(e.target.closest('[data-app-no]')) return viaLaBarra(true);
+  if(e.target.closest('[data-installa]')){ viaLaBarra(false); return installa(); }
   if(e.target.closest('[data-chiudi-app]')){
     $('m-app').hidden = true;
     if(document.getElementById('drawer').hidden) document.body.style.overflow = '';
@@ -2471,6 +2554,7 @@ function aggiorna(){
 const drawer = document.getElementById('drawer');
 let ultimoFocus = null;
 function apriDrawer(){
+  viaLaBarra(false);        /* chi sta ordinando non va disturbato */
   ultimoFocus = document.activeElement;
   passoId = 'p-ordine';
   extraAggiunto = false;
