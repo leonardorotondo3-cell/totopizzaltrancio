@@ -1040,8 +1040,25 @@ const inSafari = () => /safari/i.test(navigator.userAgent) &&
 const giaInstallata = () => matchMedia('(display-mode: standalone)').matches ||
   navigator.standalone === true;
 
+/* Una condizione sola: il tasto c'è, tranne quando la pagina STA già
+   girando dentro l'app.
+
+   Prima compariva solo se Chrome aveva offerto `beforeinstallprompt`.
+   Sembra ragionevole e non lo è: quel messaggio Chrome se lo tiene per sé
+   in parecchi casi — se l'app è già stata installata una volta, se
+   l'utente ha risposto no, se il telefono non è abbastanza convinto. In
+   tutti quei casi il tasto spariva e non restava NESSUNA strada per
+   installare: è il caso di chi la cancella e la rivuole.
+
+   Si era provato a chiedere al browser `getInstalledRelatedApps()` per
+   nascondere il tasto a chi l'app ce l'ha davvero. Tolto: quella risposta
+   può essere vecchia di un riavvio, e una risposta vecchia rimette in
+   piedi esattamente il guasto di prima. Fra un tasto di troppo a chi ce
+   l'ha già e nessuna strada per chi la rivuole, si sbaglia da questa
+   parte. Dentro l'app il tasto non si vede comunque, che è dove darebbe
+   fastidio davvero. */
 function sincInstalla(){
-  const si = !giaInstallata() && (window.__installa || suIOS());
+  const si = !giaInstallata();
   document.querySelectorAll('[data-installa]').forEach(b => { b.hidden = !si; });
 }
 
@@ -1067,9 +1084,12 @@ function istruzioniHome(){
            'Tocca <b>Condividi</b>, poi <b>Aggiungi alla schermata Home</b>.'])
     : ['Apri il menu del browser — i <b>tre puntini</b> in alto.',
        'Tocca <b>Installa app</b> o <b>Aggiungi a schermata Home</b>.'];
+  /* Qui ci si arriva solo quando il messaggio automatico non c'è. Su
+     Android capita quasi sempre perché l'app era già stata messa una
+     volta: dirlo evita che sembri un guasto del sito. */
   $('app-intro').textContent = suIOS()
     ? 'Su iPhone si fa in tre tocchi:'
-    : 'Dal menu del browser, in due tocchi:';
+    : 'Il browser stavolta non lo propone da solo — succede se l\'app c\'era già. Si rimette a mano, in due tocchi:';
   $('app-passi').innerHTML = passi.map((t, i) =>
     '<li><span class="num">' + (i + 1) + '</span><span>' + t + '</span></li>').join('');
   $('m-app').hidden = false;
